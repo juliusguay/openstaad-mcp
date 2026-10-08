@@ -182,10 +182,26 @@ The server supports two transport modes:
 |------|-------------|
 | `discover_api` | Lists available API skills and usage guidance |
 | `read_skills` | Returns detailed guidance for requested skills |
+| `launch_staad` | Starts STAAD.Pro (idempotent; optional `.std` to open in a new instance) |
+| `close_staad` | Gracefully closes only an instance `launch_staad` started |
 | `list_instances` | Lists active STAAD.Pro instances with model paths and versions |
 | `execute_code` | Runs validated Python code against the connected STAAD.Pro model |
 | `get_status` | Returns connection state, STAAD version, model path, analysis status |
 
+
+### Startup tools (`launch_staad`, `close_staad`)
+
+`launch_staad(file_path=None, timeout_s=180)` runs `Bentley.Staad.exe [file.std]` (found under
+`C:\Program Files\Bentley\Engineering\STAAD.Pro*\STAAD`; override with `STAAD_EXE`). It is
+idempotent and non-destructive: if any STAAD.Pro process or ROT instance exists it only reports it
+(`status: already_running`, pid, open file) and never opens a file in, replaces or closes that
+session. It refuses to start with < 2.5 GB free RAM (`status: insufficient_ram`), then polls until
+the instance is visible (ROT entry matching the file, or a visible window for a bare launch).
+Returns `status, launched, pid, file, port, url, waited_s` (STAAD has no port/URL; COM via ROT).
+`close_staad(force=False)` only closes the instance this server session launched (WM_CLOSE; a
+save-changes dialog is reported as `close_pending`, never answered). Use scratch `.std` copies.
+Tests: `tests/test_launch.py` (fakes only, no real launch). Live behaviour unverified until the
+smoke test is run.
 
 ## Security Notes
 

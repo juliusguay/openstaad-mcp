@@ -30,6 +30,7 @@ from openstaad_mcp.domain_tools import (
     fetch_model_summary,
     fetch_support_reactions,
 )
+from openstaad_mcp import launch as launch_mod
 from openstaad_mcp.sandbox.executor import Executor
 from openstaad_mcp.skills import SkillsManager
 from openstaad_mcp.version import check_version_warning
@@ -109,6 +110,43 @@ def _register_tools(mcp: FastMCP, registry: InstanceRegistry, exc: Executor, ski
         filtered results regardless of the ``sections`` parameter.
         """
         return skills_mgr.read_skills(skills, sections=sections)
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Launch STAAD.Pro",
+            readOnlyHint=False,
+            idempotentHint=True,  # no second instance if one is already running
+            openWorldHint=False,
+        )
+    )
+    def launch_staad(file_path: str | None = None, timeout_s: float = 180.0) -> dict[str, Any]:
+        """Start STAAD.Pro if it is not already running (idempotent).
+
+        If any STAAD.Pro instance is already running this only reports it (pid, open file) and
+        never opens a file in, replaces or closes the user's session. Otherwise (and only with
+        >= 2.5 GB free RAM) starts Bentley.Staad.exe, optionally opening ``file_path`` (a .std
+        model -- use a scratch copy, not a project file you care about), and polls until the
+        instance is visible. Returns status, launched, pid, file, waited_s.
+        """
+        return launch_mod.launch_staad(file_path, timeout_s, get_instances=registry.get_active_instances)
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Close the STAAD.Pro this server launched",
+            readOnlyHint=False,
+            destructiveHint=True,
+            idempotentHint=True,
+            openWorldHint=False,
+        )
+    )
+    def close_staad(force: bool = False) -> dict[str, Any]:
+        """Close the STAAD.Pro instance started by ``launch_staad`` in this server session.
+
+        Refuses any instance it did not start. Sends a graceful close; a save-changes dialog is
+        reported as ``close_pending`` (dismiss by hand). ``force=True`` kills it, discarding
+        unsaved work.
+        """
+        return launch_mod.close_staad(force)
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -415,7 +453,7 @@ def create_mcp_server(fastmcp_kwargs: dict | None = None) -> FastMCP:
             "This MCP server bridges AI agents to Bentley STAAD.Pro via the "
             "OpenSTAAD COM API. Use `discover_api` first to list available skills "
             "and guidance, then call `read_skills` with skill names to load detailed "
-            "instructions. Use `list_instances` to see running STAAD instances, "
+            "instructions. Use `launch_staad` to start STAAD.Pro (idempotent, optional .std), `list_instances` to see running STAAD instances, "
             "`execute_code` to run code against a live STAAD.Pro model, and "
             "`get_status` to check connection. "
             "For common structural queries, prefer the named domain tools over "
