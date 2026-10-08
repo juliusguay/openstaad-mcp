@@ -154,3 +154,21 @@ def test_silent_mode_restored_when_save_raises(env):
     st.SaveModel = bad
     r = fx.save_staad(p, runner(st))
     assert r["status"] == "error" and st.calls[-1] == ("silent", False)
+
+
+def test_save_as_falls_back_to_save_then_copy_when_saveas_missing(env):
+    user = env / "proj" / "a.std"
+    user.parent.mkdir()
+    user.write_text("model")
+    tgt = env / "out" / "c.std"
+
+    class NoSaveAs(FakeStaad):
+        def __getattribute__(self, n):
+            if n == "SaveAs":
+                raise AttributeError("'OSRoot' object has no attribute 'SaveAs'")
+            return object.__getattribute__(self, n)
+
+    st = NoSaveAs()
+    r = fx.save_staad(str(user), runner(st), save_as=str(tgt))
+    assert r["status"] == "saved" and r["method"] == "save_then_copy" and tgt.read_text() == "model"
+    assert ("SaveModel", True) in st.calls and r["active_file"] == str(user)

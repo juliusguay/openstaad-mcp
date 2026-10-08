@@ -122,14 +122,23 @@ def save_staad(
         try:
             if in_place:
                 staad.SaveModel(True)
+                method = "SaveModel"
             else:
-                staad.SaveAs(target)
+                try:
+                    staad.SaveAs(target)
+                    method = "SaveAs"
+                except AttributeError:
+                    # STAAD.Pro 2026 (26.0.0.340): the OpenSTAAD root object has no SaveAs (live-verified 2026-10-08).
+                    # Save in place, then copy the saved file; the open document stays the original.
+                    staad.SaveModel(True)
+                    shutil.copyfile(cur, target)
+                    method = "save_then_copy"
         finally:
             staad.SetSilentMode(False)
         try:
-            return {"active_file": staad.GetSTAADFile()}
+            return {"active_file": staad.GetSTAADFile(), "method": method}
         except Exception:
-            return {"active_file": None}
+            return {"active_file": None, "method": method}
 
     try:
         info = run(_do, cur)

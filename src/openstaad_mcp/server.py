@@ -187,8 +187,8 @@ def _register_tools(mcp: FastMCP, registry: InstanceRegistry, exc: Executor, ski
         A timestamped backup copy of the file about to be replaced is made first
         (C:\\Users\\JJGIV\\Backups, needs >= 2 GB free). ``save_as=None`` saves in place: allowed for
         scratch files, otherwise needs ``overwrite=True``. ``save_as=<abs .std path>`` runs SaveAs
-        (refused if the target exists unless ``overwrite=True``); NOTE STAAD may make the new file the
-        instance's active model -- ``active_file`` in the result says which. Returns
+        (refused if the target exists unless ``overwrite=True``). STAAD.Pro 2026's OpenSTAAD object has no SaveAs, so this
+        saves in place then copies the file (``method="save_then_copy"``; the open model stays the original, ``active_file`` says which). Returns
         {status, path, backed_up}.
         """
         try:
