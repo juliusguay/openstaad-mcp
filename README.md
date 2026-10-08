@@ -203,6 +203,26 @@ save-changes dialog is reported as `close_pending`, never answered). Use scratch
 Implemented in `openstaad_mcp/_launch.py` (also the entry point bentley-gateway's `ensure_app` imports; relative `file_path`s are made absolute). Tests: `tests/test_launch.py` (fakes only, no real launch). Live behaviour unverified until the
 smoke test is run.
 
+### Scratch + save tools (`new_scratch_staad`, `save_staad`)
+
+`new_scratch_staad(name=None, template=None, open=True)` writes a NEW `.std` to
+`%TEMP%\bentley-scratch\staad\<timestamp>_<name>.std` (never inside a project folder). The file is
+a plain-text STAAD command file written offline from a built-in template (`space_metric` default,
+`space_imperial`, `plane_metric`, `plane_imperial`) or copied from a seed `.std` path. `open=True`
+goes through `launch_staad(file)`: it starts STAAD.Pro on the file only if none is running (RAM
+guard applies); if an instance is running the user's session is never touched and `opened` is
+false. Returns `{status, path, app, opened}`.
+
+`save_staad(save_as=None, overwrite=False, instance=None)` saves the model of a running instance
+through OpenSTAAD (`SetSilentMode`, `SaveModel(True)` / `SaveAs`). A timestamped backup copy of the
+file about to be replaced goes to `C:\Users\JJGIV\Backups` (`BENTLEY_BACKUP_DIR`; needs >= 2 GB
+free). In-place saves of non-scratch models and `save_as` onto an existing file need
+`overwrite=True`; `save_as` obeys the same path rules as `execute_code`'s `SaveAs` (absolute,
+`.std`, no protected dirs). STAAD may make the `SaveAs` file the instance's active model
+(`active_file` in the result). Returns `{status, path, backed_up}`. Open = `launch_staad(file_path)`
+(no separate open tool). Tests: `tests/test_files.py` (fakes only). Live behaviour unverified:
+whether STAAD accepts the offline templates, and `SaveAs` active-file semantics.
+
 ## Security Notes
 
 - **Bearer token authentication.** Pass `--token MY_SECRET_TOKEN` when running in HTTP mode and include `Authorization: Bearer <token>` in client requests.

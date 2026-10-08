@@ -30,6 +30,7 @@ from openstaad_mcp.domain_tools import (
     fetch_model_summary,
     fetch_support_reactions,
 )
+from openstaad_mcp import _files as files_mod
 from openstaad_mcp import _launch as launch_mod
 from openstaad_mcp.sandbox.executor import Executor
 from openstaad_mcp.skills import SkillsManager
@@ -147,6 +148,58 @@ def _register_tools(mcp: FastMCP, registry: InstanceRegistry, exc: Executor, ski
         unsaved work.
         """
         return launch_mod.close_staad(force)
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a scratch STAAD.Pro model",
+            readOnlyHint=False,
+            idempotentHint=False,  # every call makes a new timestamped file
+            openWorldHint=False,
+        )
+    )
+    def new_scratch_staad(name: str | None = None, template: str | None = None, open: bool = True) -> dict[str, Any]:  # noqa: A002
+        """Create a NEW scratch .std model in %TEMP%\\bentley-scratch\\staad\\<timestamp>_<name>.std.
+
+        Never writes inside a project folder. ``template`` is one of space_metric (default),
+        space_imperial, plane_metric, plane_imperial, or the path of a seed .std to copy. With
+        ``open=True`` the file is opened through ``launch_staad`` (idempotent, RAM-guarded): if
+        STAAD.Pro is NOT running it is started on the file; if it IS running the user's session is
+        never touched and ``opened`` is False (open the file by hand, or use execute_code
+        OpenSTAADFile with explicit intent). Returns {status, path, app, opened}.
+        """
+        return files_mod.new_scratch_staad(
+            name, template, open,
+            launch=lambda p: launch_mod.launch_staad(p, 180.0, get_instances=registry.get_active_instances),
+        )
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Save the open STAAD.Pro model",
+            readOnlyHint=False,
+            destructiveHint=True,  # overwrite=True replaces a file (after a backup copy)
+            idempotentHint=False,
+            openWorldHint=False,
+        )
+    )
+    def save_staad(save_as: str | None = None, overwrite: bool = False, instance: str | None = None) -> dict[str, Any]:
+        """Save the model open in a running STAAD.Pro instance (OpenSTAAD SaveModel / SaveAs).
+
+        A timestamped backup copy of the file about to be replaced is made first
+        (C:\\Users\\JJGIV\\Backups, needs >= 2 GB free). ``save_as=None`` saves in place: allowed for
+        scratch files, otherwise needs ``overwrite=True``. ``save_as=<abs .std path>`` runs SaveAs
+        (refused if the target exists unless ``overwrite=True``); NOTE STAAD may make the new file the
+        instance's active model -- ``active_file`` in the result says which. Returns
+        {status, path, backed_up}.
+        """
+        try:
+            target = _resolve_target(instance)
+        except ValueError as e:
+            return {"status": "error", "path": None, "backed_up": None, "detail": str(e)}
+        return files_mod.save_staad(
+            target.file_path,
+            lambda fn, cur: connect_and_run(fn, cur, timeout=60.0),
+            save_as, overwrite,
+        )
 
     @mcp.tool(
         annotations=ToolAnnotations(
