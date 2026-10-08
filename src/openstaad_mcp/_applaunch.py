@@ -16,6 +16,7 @@ monkeypatch them with fakes (no real launches in tests).
 from __future__ import annotations
 
 import ctypes
+import functools
 import os
 import socket
 import subprocess
@@ -31,6 +32,18 @@ _now = time.monotonic
 
 # pids this process started (name -> pid); close_* tools only ever touch these.
 LAUNCHED: dict[str, int] = {}
+
+
+def detail_result(fn):
+    """Decorator: mirror a result dict's "message" into "detail" (the key bentley-gateway's
+    ensure_app reads from launcher results)."""
+    @functools.wraps(fn)
+    def wrapper(*a, **k):
+        r = fn(*a, **k)
+        if isinstance(r, dict) and "message" in r and "detail" not in r:
+            r = {**r, "detail": r["message"]}
+        return r
+    return wrapper
 
 
 # ----------------------------------------------------------------------------- memory

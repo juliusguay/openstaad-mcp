@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from openstaad_mcp import _applaunch as al
-from openstaad_mcp import launch as lc
+from openstaad_mcp import _launch as lc
 
 
 @pytest.fixture()
@@ -111,3 +111,30 @@ def test_close_graceful_and_pending(fake, monkeypatch):
     monkeypatch.setattr(al, "request_close", lambda pid: 1)
     r = lc.close_staad()
     assert r["status"] == "close_pending" and r["closed"] is False
+
+
+def test_relative_path_is_made_absolute(fake, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "rel.std").write_text("STAAD SPACE")
+    inst = SimpleNamespace(alias="a", pid=1, file_path=r"C:\other.std")
+    fake.pids = [1]
+    r = lc.launch_staad("rel.std", 5, get_instances=lambda: [inst])
+    assert r["status"] == "already_running"  # relative path was resolved (not rejected as missing)
+
+    fake.pids = []
+    r = lc.launch_staad("rel.std", 5, get_instances=lambda: [])
+    assert fake.spawned[0][1] == [str(tmp_path / "rel.std")]
+
+
+def test_detail_mirrors_message_for_gateway(fake):
+    fake.ram = 0.5
+    r = lc.launch_staad(None, 5)
+    assert r["detail"] == r["message"]
+
+
+def test_default_scan_used_when_none_passed(fake, monkeypatch):
+    called = {"n": 0}
+    monkeypatch.setattr(lc, "_default_get_instances", lambda: called.__setitem__("n", called["n"] + 1) or [])
+    fake.pids = [5]
+    lc.launch_staad(None, 5)
+    assert called["n"] == 1

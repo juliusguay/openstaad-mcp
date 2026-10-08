@@ -200,7 +200,7 @@ the instance is visible (ROT entry matching the file, or a visible window for a 
 Returns `status, launched, pid, file, port, url, waited_s` (STAAD has no port/URL; COM via ROT).
 `close_staad(force=False)` only closes the instance this server session launched (WM_CLOSE; a
 save-changes dialog is reported as `close_pending`, never answered). Use scratch `.std` copies.
-Tests: `tests/test_launch.py` (fakes only, no real launch). Live behaviour unverified until the
+Implemented in `openstaad_mcp/_launch.py` (also the entry point bentley-gateway's `ensure_app` imports; relative `file_path`s are made absolute). Tests: `tests/test_launch.py` (fakes only, no real launch). Live behaviour unverified until the
 smoke test is run.
 
 ## Security Notes

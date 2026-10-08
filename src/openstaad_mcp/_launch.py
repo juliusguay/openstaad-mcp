@@ -38,10 +38,18 @@ def resolve_staad_exe() -> Optional[str]:
     return hits[-1] if hits else None
 
 
+def _default_get_instances() -> list[Any]:
+    """Real ROT scan (used when the caller -- e.g. bentley-gateway's ensure_app -- passes none)."""
+    from openstaad_mcp.connection import InstanceRegistry
+
+    return InstanceRegistry().get_active_instances()
+
+
 def _norm(p: str) -> str:
     return os.path.normcase(os.path.abspath(p)) if p else ""
 
 
+@al.detail_result
 def launch_staad(
     file_path: Optional[str] = None,
     timeout_s: float = DEFAULT_TIMEOUT_S,
@@ -52,8 +60,9 @@ def launch_staad(
     ``get_instances`` returns the ROT-discovered instances (objects with .pid/.file_path/.alias);
     injected by server.py (and by tests).
     """
-    get_instances = get_instances or (lambda: [])
+    get_instances = get_instances or _default_get_instances
     if file_path:
+        file_path = os.path.abspath(file_path)  # the app's cwd is its install dir, not ours
         if not file_path.lower().endswith(".std"):
             return {"status": "error", "launched": False, "message": f"expected a .std file, got {file_path!r}"}
         if not os.path.isfile(file_path):
@@ -123,6 +132,7 @@ def launch_staad(
     }
 
 
+@al.detail_result
 def close_staad(force: bool = False) -> dict[str, Any]:
     """Close ONLY the STAAD.Pro instance this server session launched (WM_CLOSE; a save-changes
     dialog is reported, never answered). Refuses user-started instances."""

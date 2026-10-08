@@ -30,7 +30,7 @@ from openstaad_mcp.domain_tools import (
     fetch_model_summary,
     fetch_support_reactions,
 )
-from openstaad_mcp import launch as launch_mod
+from openstaad_mcp import _launch as launch_mod
 from openstaad_mcp.sandbox.executor import Executor
 from openstaad_mcp.skills import SkillsManager
 from openstaad_mcp.version import check_version_warning
